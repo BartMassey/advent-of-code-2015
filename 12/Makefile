@@ -1,0 +1,16 @@
+HC = ghc
+HCFLAGS = -i.. -Wall -O
+
+all: soln soln-aeson soln-json
+
+soln: soln.hs
+	$(HC) $(HCFLAGS) --make soln.hs
+
+soln-aeson: soln-aeson.hs
+	$(HC) $(HCFLAGS) --make soln-aeson.hs
+
+soln-json: soln-json.hs
+	$(HC) $(HCFLAGS) --make soln-json.hs
+
+clean:
+	-rm -f *.hi *.o soln soln-aeson soln-json
