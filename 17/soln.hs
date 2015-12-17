@@ -11,11 +11,21 @@ solns stuff =
 solna stuff = do
   print $ length $ solns stuff
 
+countMinimal :: Ord b => (a -> b) -> [a] -> Int
+countMinimal _ [] = 0
+countMinimal f (e0 : es) =
+    fst $ foldl' check (1, f e0) es
+    where
+      check (c, m) e =
+          let m' = f e in
+          case m' `compare` m of
+            LT -> (1, m')
+            EQ -> (c + 1, m)
+            GT -> (c, m)
+
 solnb :: String -> IO ()
 solnb stuff = do
-  let candidateStuff = solns stuff
-  let minContainers = minimum $ map length $ candidateStuff
-  print $ length $ filter ((== minContainers) . length) $ candidateStuff
+  print $ countMinimal length $ solns stuff
 
 main :: IO ()
 main = makeMain solna solnb
