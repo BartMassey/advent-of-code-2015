@@ -8,7 +8,6 @@ import System.IO (hFlush, stdout)
 import Soln
 
 data Light = LightOn | LightOff
-           deriving Eq
 
 type LightMap = M.Map (Int, Int) Light
 
@@ -48,7 +47,7 @@ playLife m =
           | n < 2 = LightOff
           | n > 3 = LightOff
           | n == 3 = LightOn
-          | n == 2 && l == LightOn = LightOn
+          | n == 2 = l
           | otherwise = LightOff
           where
             n = countLights
