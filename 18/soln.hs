@@ -1,57 +1,75 @@
 -- Copyright © 2015 Bart Massey
 
-import qualified Data.Map as M
+import qualified Data.Map.Strict as M
 
 import Soln
 
-type LightMap = M.Map (Int, Int) Int
+data Light = LightOn | LightOff
+           deriving Eq
+
+type LightMap = M.Map (Int, Int) Light
+
+nFrames :: Int
+nFrames = 100
+
+xSize, ySize :: Int
+xSize = 100
+ySize = 100
 
 indices :: [(Int, Int)]
-indices = [(x, y) | y <- [0..99], x <- [0..99]]
+indices = [(x, y) | y <- [1 .. ySize], x <- [1 .. xSize]]
 
 readLights :: String -> LightMap
 readLights stuff =
     M.fromList $ zip indices $ map readLight $ concat $ lines stuff
     where
-      readLight '#' = 1
-      readLight '.' = 0
+      readLight '#' = LightOn
+      readLight '.' = LightOff
       readLight _ = error "bad light"
 
-nextFrame :: LightMap -> LightMap
-nextFrame m =
-    M.fromList $ map (\xy -> (xy, updateLight xy)) indices
+countLights :: [(Int, Int)] -> LightMap -> Int
+countLights ixs m = 
+    sum $ map (lightValue . flip M.lookup m) ixs
     where
-      updateLight xy  =
-          let neighbors =
-                sum $ catMaybes $ findNeighbors xy in
-          case neighbors of
-            x | x < 2 -> 0
-            x | x > 3 -> 0
-            x | x == 3 -> 1
-            x | x == 2 && Just 1 == M.lookup xy m -> 1
-            _ -> 0 
+      lightValue (Just LightOn) = 1
+      lightValue _ = 0
+
+playLife :: LightMap -> LightMap
+playLife m =
+    M.mapWithKey updateLight m
+    where
+      updateLight (x, y) l
+          | n < 2 = LightOff
+          | n > 3 = LightOff
+          | n == 3 = LightOn
+          | n == 2 && l == LightOn = LightOn
+          | otherwise = LightOff
           where
-            findNeighbors (x, y) =
-                map (flip M.lookup m) [(x + dx, y + dy) |
-                                       dx <- [-1 .. 1],
-                                       dy <- [-1 .. 1],
-                                       (dx, dy) /= (0, 0)]
+            n = countLights
+                  [ (x + dx, y + dy) |
+                    dy <- [-1 .. 1],
+                    dx <- [-1 .. 1],
+                    (dx, dy) /= (0, 0) ] m
 
 stickCorners :: LightMap -> LightMap
-stickCorners m =
-    foldr (\xy m' -> M.insert xy 1 m') m [(0,0),(0,99),(99,0),(99,99)]
+stickCorners m0 =
+    foldr stickCorner m0 [(x, y) | x <- [1, xSize], y <- [1, ySize]]
+    where
+      stickCorner xy m = M.insert xy LightOn m
 
-countLights :: LightMap -> Int
-countLights m =
-    sum $ catMaybes $ map (flip M.lookup m) indices
+soln :: (LightMap -> LightMap) -> String -> IO ()
+soln nextFrame stuff = do
+  print $ countLights indices $ makeFrames !! nFrames
+  where
+    makeFrames = iterate nextFrame $ readLights stuff
 
 solna :: String -> IO ()
 solna stuff = do
-  print $ countLights $ (iterate nextFrame $ readLights stuff) !! 100
+  soln playLife stuff
 
 solnb :: String -> IO ()
 solnb stuff = do
-  print $ countLights $ (iterate (stickCorners . nextFrame) $ stickCorners $ readLights stuff) !! 100
+  soln (stickCorners . playLife) stuff
 
 main :: IO ()
 main = makeMain solna solnb
