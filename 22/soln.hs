@@ -126,9 +126,9 @@ fightSim effects attacker defender =
             PC -> Result NPC (statsManaSpent attacker)
             NPC -> Result PC (statsManaSpent defender)
       else if statsHP defender' <= 0 then
-          case statsType attacker' of
-            PC -> Result NPC (statsManaSpent attacker)
-            NPC -> Result PC (statsManaSpent defender)
+          case statsType defender' of
+            PC -> Result NPC (statsManaSpent defender)
+            NPC -> Result PC (statsManaSpent attacker)
       else
           fightRound effects' attacker' defender'
     where
