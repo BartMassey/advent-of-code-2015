@@ -27,11 +27,26 @@ instance Show Spell where
 data Result = Result XPC Int
               deriving (Show, Ord, Eq)
 
-parseStats :: String -> Stats
-parseStats stuff
+pc :: Stats
+pc = Stats {
+       statsType = PC,
+       statsHP = 50,
+       statsDamage = 0,
+       statsArmor = 0,
+       statsMana = 500,
+       statsManaSpent = 0 }
+
+parseBoss :: String -> Stats
+parseBoss stuff
     | ["Hit_Points:", "Damage:"] == head parse =
         let [hpstr, dstr] = last parse in
-        Stats NPC (read hpstr) (read dstr) 0 0 0
+        Stats {
+          statsType = NPC,
+          statsHP = read hpstr,
+          statsDamage = read dstr,
+          statsArmor = 0,
+          statsMana = 0,
+          statsManaSpent = 0 }
     | otherwise = error "bad stats"
     where
       parse = transpose $ map words $ lines stuff
@@ -165,12 +180,9 @@ fightRound effects attacker defender =
           then Result NPC (statsManaSpent defender')
           else fightSim effects defender' attacker
 
-pc :: Stats
-pc = Stats PC 50 0 0 500 0
-
 solna :: String -> IO ()
 solna stuff = do
-  let boss = parseStats stuff
+  let boss = parseBoss stuff
   print $ fightSim [] pc boss
 
 solnb :: String -> IO ()
