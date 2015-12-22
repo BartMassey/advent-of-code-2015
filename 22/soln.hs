@@ -117,10 +117,14 @@ spendMana spell caster =
       statsMana = statsMana caster - cost,
       statsManaSpent = statsManaSpent caster + cost }
 
-fightSim :: [Spell] -> Stats -> Stats -> Result
-fightSim effects attacker defender =
+decrementDuration :: Spell -> Spell
+decrementDuration spell =
+    spell { spellDuration = spellDuration spell - 1 }
+
+fightSim :: [String] -> [Spell] -> Stats -> Stats -> Result
+fightSim strat effects attacker defender =
     let (newEffects, (effectedAttacker, effectedDefender)) =
-            foldr applyEffect ([], (attacker, defender)) effects
+            runEffects effects (attacker, defender)
     in
       if statsHP effectedAttacker <= 0 then
           case statsType effectedAttacker of
@@ -131,28 +135,43 @@ fightSim effects attacker defender =
             PC -> error "PC defender died of spell effects"
             NPC -> Result PC (statsManaSpent effectedAttacker)
       else
-          fightRound newEffects effectedAttacker effectedDefender
+          fightRound strat newEffects effectedAttacker effectedDefender
     where
-      applyEffect spell (filteredEffects, combatants)
-          | spellDuration spell < 0 = error "overqueued spell"
-          | spellDuration spell == 0 =
-              (filteredEffects,
-               spellPostEffect spell combatants)
-          | otherwise =
-              (decrementDuration spell : filteredEffects,
-               spellEffect spell combatants)
+      runEffects oldEffects combatants =
+          let newCombatants = foldr runEffect combatants oldEffects in
+          foldr expireEffect ([], newCombatants) oldEffects
           where
-            decrementDuration s =
-                s { spellDuration = spellDuration s - 1 }
+            runEffect spell curCombatants
+                | spellDuration spell <= 0 = error "overqueued spell"
+                | otherwise = spellEffect spell curCombatants
+            expireEffect spell (newEffects, curCombatants) =
+                case decrementDuration spell of
+                  s | spellDuration s < 0 ->
+                        error "mysteriously overqueued spell"
+                  s | spellDuration s == 0 ->
+                        (newEffects, spellPostEffect spell curCombatants)
+                  s -> (s : newEffects, curCombatants)
 
-fightRound :: [Spell] -> Stats -> Stats -> Result
-fightRound effects attacker defender =
+fightRound :: [String] -> [Spell] -> Stats -> Stats -> Result
+fightRound [] _ _ _ = error "ran out of strat"
+fightRound strat@(stratSpell : strats) effects attacker defender =
     case statsType attacker of
       PC ->
           case spellChoices of
-            [] -> Result NPC (statsManaSpent attacker)
-            cs -> minimum $ map magicalAttack cs
+            [] -> error $ unlines [
+                             "ran out of spell choices before winning",
+                              "player " ++ show attacker,
+                              "effects " ++ show effects ]
+            cs -> magicalAttack $ lookupSpell cs
           where
+            lookupSpell candidates =
+                case find (\c -> spellName c == stratSpell) candidates of
+                  Just s -> s
+                  Nothing -> error $ unlines [
+                              "failed to find strat spell " ++ stratSpell,
+                              "in " ++ show (map spellName candidates),
+                              "player " ++ show attacker,
+                              "effects " ++ show effects ]
             magicalAttack spell =
                 let chargedAttacker = spendMana spell attacker in
                 case spellDuration spell of
@@ -161,10 +180,10 @@ fightRound effects attacker defender =
                           spellEffect spell (chargedAttacker, defender) in
                     if statsHP effectedDefender <= 0
                     then Result PC (statsManaSpent effectedAttacker)
-                    else fightSim effects effectedDefender effectedAttacker
+                    else fightSim strats effects effectedDefender effectedAttacker
                   _ -> 
                     let addedEffects = spell : effects in
-                    fightSim addedEffects defender chargedAttacker
+                    fightSim strats addedEffects defender chargedAttacker
             spellChoices =
                 sortBy (comparing spellCost) $ filter okSpell spellbook
                 where
@@ -176,12 +195,15 @@ fightRound effects attacker defender =
                 applyDamage (statsDamage attacker) defender in
           if statsHP effectedDefender <= 0
           then Result NPC (statsManaSpent effectedDefender)
-          else fightSim effects effectedDefender attacker
+          else fightSim strat effects effectedDefender attacker
 
 solna :: String -> IO ()
 solna stuff = do
   let boss = parseBoss stuff
-  print $ fightSim [] pc boss
+  let strat = [ "Shield", "Recharge", "Poison",
+                "Shield", "Recharge", "Poison", "Shield" ] ++
+              replicate 6 "Magic Missile"
+  print $ fightSim strat [] pc boss
 
 solnb :: String -> IO ()
 solnb stuff = do
