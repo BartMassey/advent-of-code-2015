@@ -74,20 +74,21 @@ equippedPCs :: [Stats]
 equippedPCs =
     map outfit gearChoices
     where
-      weapons = filter ((== Weapon) . itemType) items
-      armors = filter ((== Armor) . itemType) items
-      rings = filter ((== Ring) . itemType) items
-      ringCombos = map (:[]) rings ++ ringPairs
-                   where
-                     ringPairs = do
-                       (r1 : rs) <- tails rings
-                       r2 <- rs
-                       return [r1, r2]
+      getItems targetType =
+          filter ((== targetType) . itemType) items
+      ringCombos =
+          map (:[]) rings ++ ringPairs
+          where
+            rings = getItems Ring
+            ringPairs = do
+              (r1 : rs) <- tails rings
+              r2 <- rs
+              return [r1, r2]
       gearChoices = do
-        weapon <- weapons
-        armor <- [] : map (:[]) armors
-        ring <- [] : ringCombos
-        return $ weapon : (armor ++ ring)
+        weapon <- getItems Weapon
+        armor <- [] : map (:[]) (getItems Armor)
+        rings <- [] : ringCombos
+        return $ weapon : (armor ++ rings)
       outfit gear =
           foldr applyGear nakedPlayer gear
           where
