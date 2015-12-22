@@ -2,7 +2,8 @@
 
 import Soln
 
-data XPC = PC | NPC deriving (Eq, Show, Ord)
+data XPC = PC | NPC
+           deriving (Eq, Show, Ord)
 
 type Effect = (Stats, Stats) -> (Stats, Stats)
 
@@ -118,26 +119,27 @@ spendMana spell caster =
 
 fightSim :: [Spell] -> Stats -> Stats -> Result
 fightSim effects attacker defender =
-    let (effects', (attacker', defender')) =
+    let (newEffects, (effectedAttacker, effectedDefender)) =
             foldr applyEffect ([], (attacker, defender)) effects
     in
-      if statsHP attacker' <= 0 then
-          case statsType attacker' of
-            PC -> Result NPC (statsManaSpent attacker)
-            NPC -> Result PC (statsManaSpent defender)
-      else if statsHP defender' <= 0 then
-          case statsType defender' of
-            PC -> Result NPC (statsManaSpent defender)
-            NPC -> Result PC (statsManaSpent attacker)
+      if statsHP effectedAttacker <= 0 then
+          case statsType effectedAttacker of
+            PC -> error "PC attacker died of spell effects"
+            NPC -> Result PC (statsManaSpent effectedDefender)
+      else if statsHP effectedDefender <= 0 then
+          case statsType effectedDefender of
+            PC -> error "PC defender died of spell effects"
+            NPC -> Result PC (statsManaSpent effectedAttacker)
       else
-          fightRound effects' attacker' defender'
+          fightRound newEffects effectedAttacker effectedDefender
     where
-      applyEffect spell (newEffects, combatants)
+      applyEffect spell (filteredEffects, combatants)
           | spellDuration spell < 0 = error "overqueued spell"
           | spellDuration spell == 0 =
-              (newEffects, spellPostEffect spell combatants)
+              (filteredEffects,
+               spellPostEffect spell combatants)
           | otherwise =
-              (decrementDuration spell : newEffects,
+              (decrementDuration spell : filteredEffects,
                spellEffect spell combatants)
           where
             decrementDuration s =
@@ -150,22 +152,19 @@ fightRound effects attacker defender =
           case spellChoices of
             [] -> Result NPC (statsManaSpent attacker)
             cs -> minimum $ map magicalAttack cs
-              where
-                magicalAttack spell =
-                    let attacker' = spendMana spell attacker in
-                    case spellDuration spell of
-                      0 ->
-                        if statsHP defender' <= 0
-                        then Result PC (statsManaSpent attacker'')
-                        else fightSim effects defender' attacker''
-                        where
-                          (attacker'', defender') =
-                              spellEffect spell (attacker', defender)
-                      _ -> 
-                        fightSim effects' defender attacker'
-                        where
-                          effects' = spell : effects
           where
+            magicalAttack spell =
+                let chargedAttacker = spendMana spell attacker in
+                case spellDuration spell of
+                  0 ->
+                    let (effectedAttacker, effectedDefender) =
+                          spellEffect spell (chargedAttacker, defender) in
+                    if statsHP effectedDefender <= 0
+                    then Result PC (statsManaSpent effectedAttacker)
+                    else fightSim effects effectedDefender effectedAttacker
+                  _ -> 
+                    let addedEffects = spell : effects in
+                    fightSim addedEffects defender chargedAttacker
             spellChoices =
                 sortBy (comparing spellCost) $ filter okSpell spellbook
                 where
@@ -173,12 +172,11 @@ fightRound effects attacker defender =
                       spellCost spell <= statsMana attacker &&
                       all (\s -> spellName spell /= spellName s) effects
       NPC ->
-          let defender' =
-                  applyDamage (statsDamage attacker) defender
-          in
-          if statsHP defender' <= 0
-          then Result NPC (statsManaSpent defender')
-          else fightSim effects defender' attacker
+          let effectedDefender =
+                applyDamage (statsDamage attacker) defender in
+          if statsHP effectedDefender <= 0
+          then Result NPC (statsManaSpent effectedDefender)
+          else fightSim effects effectedDefender attacker
 
 solna :: String -> IO ()
 solna stuff = do
