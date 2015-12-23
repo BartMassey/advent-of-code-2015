@@ -1,5 +1,10 @@
 -- Copyright © 2015 Bart Massey
 
+-- Got help debugging from this solution
+--   https://www.reddit.com/r/adventofcode/comments/
+--     3xspyl/day_22_solutions/cy7l25a
+-- although it appears to be wrong on my input.
+
 import Soln
 
 data XPC = PC | NPC
@@ -102,6 +107,12 @@ effectRecharge (attacker, defender) =
       NPC -> (attacker, applyMana 101 defender)
       PC -> (applyMana 101 attacker, defender)
 
+effectHardMode :: Effect
+effectHardMode (attacker, defender) =
+    case statsType attacker of
+      NPC -> (attacker, defender)
+      PC -> (applyDamage 1 attacker, defender)
+
 spellbook :: [Spell]
 spellbook = [
   Spell "Magic Missile" 53 0 effectDamage id,
@@ -121,36 +132,56 @@ decrementDuration :: Spell -> Spell
 decrementDuration spell =
     spell { spellDuration = spellDuration spell - 1 }
 
+diedFromSpell :: (Stats, Stats) -> Maybe Result
+diedFromSpell (attacker, defender) =
+    if statsHP attacker <= 0 then
+        case statsType attacker of
+          PC -> Just $ Result NPC (statsManaSpent attacker)
+          NPC -> Just $ Result PC (statsManaSpent defender)
+    else if statsHP defender <= 0 then
+        case statsType defender of
+          PC -> Just $ Result NPC (statsManaSpent defender)
+          NPC -> Just $ Result PC (statsManaSpent attacker)
+    else
+        Nothing
+
 fightSim :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
 fightSim limit strat effects attacker defender =
-    let (newEffects, (effectedAttacker, effectedDefender)) =
-            runEffects effects (attacker, defender)
-    in
-      if statsHP effectedAttacker <= 0 then
-          case statsType effectedAttacker of
-            PC -> error "PC attacker died of spell effects"
-            NPC -> Result PC (statsManaSpent effectedDefender)
-      else if statsHP effectedDefender <= 0 then
-          case statsType effectedDefender of
-            PC -> error "PC defender died of spell effects"
-            NPC -> Result PC (statsManaSpent effectedAttacker)
-      else
-          fightRound limit strat newEffects effectedAttacker effectedDefender
+    let instCombatants = runInstants (attacker, defender) in
+      case diedFromSpell instCombatants of
+        Just result -> result
+        Nothing ->
+            let (newEffects, effectedCombatants) =
+                    runEffects effects instCombatants
+            in
+            case diedFromSpell effectedCombatants of
+              Just result -> result
+              Nothing -> uncurry (fightRound limit strat newEffects)
+                           effectedCombatants
     where
+      runInstants combatants =
+          foldr runInstant combatants effects
+          where
+            runInstant spell curCombatants
+                | spellDuration spell /= -1 = curCombatants
+                | otherwise = spellEffect spell curCombatants
       runEffects oldEffects combatants =
           let newCombatants = foldr runEffect combatants oldEffects in
           foldr expireEffect ([], newCombatants) oldEffects
           where
             runEffect spell curCombatants
-                | spellDuration spell <= 0 = error "overqueued spell"
+                | spellDuration spell == -1 = curCombatants
+                | spellDuration spell <= 0 = error "misqueued spell"
                 | otherwise = spellEffect spell curCombatants
             expireEffect spell (newEffects, curCombatants) =
-                case decrementDuration spell of
-                  s | spellDuration s < 0 ->
-                        error "mysteriously overqueued spell"
-                  s | spellDuration s == 0 ->
+                case spellDuration spell of
+                  s | s == -1 ->
+                        (spell : newEffects, curCombatants)
+                  s | s == 1 ->
                         (newEffects, spellPostEffect spell curCombatants)
-                  s -> (s : newEffects, curCombatants)
+                  s | s < 1 ->
+                        error "misqueued spell"
+                  _ -> (decrementDuration spell : newEffects, curCombatants)
 
 fightRound :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
 fightRound limit strat effects attacker defender =
@@ -211,14 +242,14 @@ fightRound limit strat effects attacker defender =
 solna :: String -> IO ()
 solna stuff = do
   let boss = parseBoss stuff
-  let strat = [ "Shield", "Recharge", "Poison",
-                "Shield", "Recharge", "Poison", "Shield" ] ++
-              replicate 6 "Magic Missile"
   print $ fightSim 10000 Nothing [] pc boss
 
 solnb :: String -> IO ()
 solnb stuff = do
-  print stuff
+  let boss = parseBoss stuff
+  print $ fightSim 10000 Nothing [hardMode] pc boss
+  where
+    hardMode = Spell "HardMode" 0 (-1) effectHardMode id
 
 main :: IO ()
 main = makeMain solna solnb
