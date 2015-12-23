@@ -121,8 +121,8 @@ decrementDuration :: Spell -> Spell
 decrementDuration spell =
     spell { spellDuration = spellDuration spell - 1 }
 
-fightSim :: [String] -> [Spell] -> Stats -> Stats -> Result
-fightSim strat effects attacker defender =
+fightSim :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
+fightSim limit strat effects attacker defender =
     let (newEffects, (effectedAttacker, effectedDefender)) =
             runEffects effects (attacker, defender)
     in
@@ -135,7 +135,7 @@ fightSim strat effects attacker defender =
             PC -> error "PC defender died of spell effects"
             NPC -> Result PC (statsManaSpent effectedAttacker)
       else
-          fightRound strat newEffects effectedAttacker effectedDefender
+          fightRound limit strat newEffects effectedAttacker effectedDefender
     where
       runEffects oldEffects combatants =
           let newCombatants = foldr runEffect combatants oldEffects in
@@ -152,19 +152,25 @@ fightSim strat effects attacker defender =
                         (newEffects, spellPostEffect spell curCombatants)
                   s -> (s : newEffects, curCombatants)
 
-fightRound :: [String] -> [Spell] -> Stats -> Stats -> Result
-fightRound [] _ _ _ = error "ran out of strat"
-fightRound strat@(stratSpell : strats) effects attacker defender =
+fightRound :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
+fightRound limit strat effects attacker defender =
     case statsType attacker of
       PC ->
           case spellChoices of
-            [] -> error $ unlines [
-                             "ran out of spell choices before winning",
-                              "player " ++ show attacker,
-                              "effects " ++ show effects ]
-            cs -> magicalAttack $ lookupSpell cs
+            [] -> case strat of
+                    Nothing -> Result NPC (statsManaSpent attacker)
+                    Just _ -> error $ unlines [
+                               "ran out of spell choices before winning",
+                                "player " ++ show attacker,
+                                "effects " ++ show effects ]
+            cs -> case strat of
+                    Nothing ->
+                        minimum $ map magicalAttack $ sortBy (comparing spellCost) cs
+                    Just [] -> error "ran out of strat"
+                    Just (s : _) ->
+                        magicalAttack $ lookupSpell s cs
           where
-            lookupSpell candidates =
+            lookupSpell stratSpell candidates =
                 case find (\c -> spellName c == stratSpell) candidates of
                   Just s -> s
                   Nothing -> error $ unlines [
@@ -174,16 +180,21 @@ fightRound strat@(stratSpell : strats) effects attacker defender =
                               "effects " ++ show effects ]
             magicalAttack spell =
                 let chargedAttacker = spendMana spell attacker in
-                case spellDuration spell of
-                  0 ->
-                    let (effectedAttacker, effectedDefender) =
-                          spellEffect spell (chargedAttacker, defender) in
-                    if statsHP effectedDefender <= 0
-                    then Result PC (statsManaSpent effectedAttacker)
-                    else fightSim strats effects effectedDefender effectedAttacker
-                  _ -> 
-                    let addedEffects = spell : effects in
-                    fightSim strats addedEffects defender chargedAttacker
+                case limit - statsManaSpent attacker of
+                  newLimit | newLimit < 0 -> Result NPC 1000000
+                  newLimit ->
+                    case spellDuration spell of
+                      0 ->
+                        let (effectedAttacker, effectedDefender) =
+                              spellEffect spell (chargedAttacker, defender) in
+                        if statsHP effectedDefender <= 0
+                        then Result PC (statsManaSpent effectedAttacker)
+                        else fightSim newLimit (fmap tail strat)
+                               effects effectedDefender effectedAttacker
+                      _ -> 
+                        let addedEffects = spell : effects in
+                        fightSim newLimit (fmap tail strat)
+                                 addedEffects defender chargedAttacker
             spellChoices =
                 sortBy (comparing spellCost) $ filter okSpell spellbook
                 where
@@ -195,7 +206,7 @@ fightRound strat@(stratSpell : strats) effects attacker defender =
                 applyDamage (statsDamage attacker) defender in
           if statsHP effectedDefender <= 0
           then Result NPC (statsManaSpent effectedDefender)
-          else fightSim strat effects effectedDefender attacker
+          else fightSim limit strat effects effectedDefender attacker
 
 solna :: String -> IO ()
 solna stuff = do
@@ -203,7 +214,7 @@ solna stuff = do
   let strat = [ "Shield", "Recharge", "Poison",
                 "Shield", "Recharge", "Poison", "Shield" ] ++
               replicate 6 "Magic Missile"
-  print $ fightSim strat [] pc boss
+  print $ fightSim 10000 Nothing [] pc boss
 
 solnb :: String -> IO ()
 solnb stuff = do
