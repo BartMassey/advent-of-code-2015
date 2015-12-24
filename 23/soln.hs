@@ -26,8 +26,8 @@ data CondInsn = CondInsn {
       condOp :: Reg -> Int -> State -> State }
 
 class Insn a where
-    insnOpcode :: Insn a => a -> String
-    insnOp :: Insn a => a -> State -> State
+    insnOpcode :: a -> String
+    insnOp :: a -> State -> State
 
 instance Insn ALUInsn where
     insnOpcode = aluOpcode

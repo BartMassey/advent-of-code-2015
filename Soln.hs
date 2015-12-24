@@ -1,7 +1,7 @@
 -- Copyright © 2015 Bart Massey
 
 module Soln (
-  tiles, envelop,
+  tiles, envelop, splits,
   makeMain,
   module Control.Monad,
   module Control.Applicative,
@@ -42,6 +42,11 @@ tiles size skip xs =
       tile partial rest 
           | length rest < size = (partial, [])
           | otherwise = (partial ++ [take size rest], drop skip rest)
+
+-- | Given a list, return the list of all possible
+-- ways to split that list into two parts.
+splits :: [a] -> [([a], [a])]
+splits xs = zip (inits xs) (tails xs)
 
 makeMain :: (String -> IO ()) -> (String -> IO ()) -> IO ()
 makeMain solna solnb = do
