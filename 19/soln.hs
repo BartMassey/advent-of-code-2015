@@ -33,12 +33,17 @@ parseMachine stuff =
     (m, elems)
 
 solna :: String -> IO ()
-solna stuff = do
-  putStrLn stuff
+solna _ = error "no solution for a here"
 
 solnb :: String -> IO ()
 solnb stuff = do
-  putStrLn stuff
+  let (_, es) = parseMachine stuff
+  -- Solution blatantly stolen from
+  -- https://www.reddit.com/r/adventofcode/
+  --   comments/3xflz8/day_19_solutions/cy4h7ji
+  let n = length es
+  let c s = length $ filter (== s) es
+  print $ n - c "Rn" - c "Ar" - 2 * c "Y" - 1
 
 main :: IO ()
 main = makeMain solna solnb
