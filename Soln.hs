@@ -1,12 +1,13 @@
 -- Copyright © 2015 Bart Massey
 
 module Soln (
-  tiles, envelop, splits,
+  tiles, envelop, splits, sspan,
   makeMain,
   module Control.Monad,
   module Control.Applicative,
   module Data.Bits,
   module Data.Char,
+  module Data.Function,
   module Data.List,
   module Data.Maybe,
   module Data.Ord,
@@ -17,6 +18,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Bits
 import Data.Char
+import Data.Function
 import Data.List
 import Data.Maybe
 import Data.Ord
@@ -47,6 +49,14 @@ tiles size skip xs =
 -- ways to split that list into two parts.
 splits :: [a] -> [([a], [a])]
 splits xs = zip (inits xs) (tails xs)
+
+
+-- | Like 'Data.List.span', but includes the matched element
+-- on the left.
+sspan :: (a -> Bool) -> [a] -> ([a], [a])
+sspan _ [] = ([], [])
+sspan f (x : xs) | f x = ([x], xs)
+sspan f (x : xs) = let (l, r) = sspan f xs in (x : l, r)
 
 makeMain :: (String -> IO ()) -> (String -> IO ()) -> IO ()
 makeMain solna solnb = do
