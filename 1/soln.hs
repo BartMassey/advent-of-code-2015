@@ -1,5 +1,6 @@
 -- Copyright © 2015 Bart Massey
 
+import Prelude hiding (traverse, floor)
 import Soln
 
 -- | Strategy: Just traverse the floors.
@@ -10,7 +11,11 @@ solna stuff = do
     traverse :: Int -> Char -> Int
     traverse floor '(' = floor + 1
     traverse floor ')' = floor - 1
-    traverse floor _ = error "bad direction"
+    traverse _ _ = error "bad direction"
+
+-- | 'Left' is number of steps needed to hit the basement.
+-- | 'Right' is number of steps so far, and current floor number.
+type State = Either Int (Int, Int)
 
 -- | Strategy: Traverse the floors keeping count.
 solnb :: String -> IO ()
@@ -19,14 +24,15 @@ solnb stuff = do
     Left n -> print n
     Right _ -> error "basement never entered"
   where
-    traverse :: Either Int (Int, Int)
+    traverse :: State -> Char -> State
     traverse (Right (count, floor)) '(' =
         Right (count + 1, floor + 1)
     traverse (Right (count, floor)) ')'
         -- Going down from floor 0 enters the basement.
         | floor == 0 = Left count
         | otherwise = Right (count + 1, floor - 1)
-    traverse _ _ = error "bad floor"
+    traverse count@(Left _) _ = count
+    traverse _ _ = error "bad input or state"
 
 main :: IO ()
 main = makeMain solna solnb
