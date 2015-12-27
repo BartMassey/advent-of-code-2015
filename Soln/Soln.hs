@@ -58,6 +58,8 @@ sspan _ [] = ([], [])
 sspan f (x : xs) | f x = ([x], xs)
 sspan f (x : xs) = let (l, r) = sspan f xs in (x : l, r)
 
+-- | Package up all the input reading and argument parsing
+-- into a single clean `main`.
 makeMain :: (String -> IO ()) -> (String -> IO ()) -> IO ()
 makeMain solna solnb = do
   args <- getArgs
