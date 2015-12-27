@@ -6,17 +6,24 @@ import qualified Data.ByteString.Char8 as BC
 
 import Soln
 
+-- | Return the hex representation of a byte. There
+-- are other ways, but this is fast and easy to understand.
 byteHex :: Word8 -> String
-byteHex b = map intToDigit [ fromIntegral b `shiftR` 4,
-                             fromIntegral b .&. 0xf ]
+byteHex b =
+    map intToDigit [ fromIntegral b `shiftR` 4,
+                     fromIntegral b .&. 0xf ]
 
+-- | Return the hex representation of a list of bytes.
 showHex :: [Word8] -> String
 showHex bs = concatMap byteHex bs
 
+-- | Return the hex representation of the
+-- MD5 hash of the given input string.
 hashString :: String -> String
 hashString s =
   showHex $ B.unpack $ hash $ BC.pack s
 
+-- | Strategy: Brute force.
 solve :: String -> Int -> Int
 solve stuff digits =
     fromJust $ find valid [1..]
