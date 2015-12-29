@@ -5,3 +5,6 @@ plus it's a lot of work. So brute force again.
 
 The interesting part of the Haskell is the thing that
 computes all the possible ingredient combinations.
+
+I've included a little auxiliary program that shows the
+actual recipes.
