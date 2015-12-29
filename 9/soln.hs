@@ -5,12 +5,16 @@ import qualified Data.Set as S
 
 import Soln
 
+-- | Map pairs of cities to their distances.
 type DistMap = M.Map (String, String) Int
 
+-- | Parse a route. This pattern is common in the
+-- remaining problems.
 parseRoute :: [String] -> (String, String, Int)
 parseRoute [c1, "to", c2, "=", ds] = (c1, c2, read ds)
 parseRoute _ = error "bad route"
 
+-- | Parse the input and construct a distance map.
 parseMap :: String -> ([String], DistMap)
 parseMap stuff =
     let triples = map parseRoute $ map words $ lines stuff in
@@ -23,7 +27,7 @@ parseMap stuff =
       findCities citySet (c1, c2, _) =
           S.insert c1 $ S.insert c2 citySet
 
-
+-- | Compute the total distance of a route.
 dist :: DistMap -> [String] -> Int
 dist distMap route =
     sum $ map legDist $ tiles 2 1 route
@@ -34,14 +38,18 @@ dist distMap route =
             Nothing -> error "bad leg"
       legDist _ = error "internal error: leg length"
 
--- XXX This scales *horribly*
+-- | Type for function that computes the best
+-- value in a list given an ordering function.
+type BestBy a = (a -> a -> Ordering) -> [a] -> a
 
-type MByType a = (a -> a -> Ordering) -> [a] -> a
-
-soln :: MByType [String] -> String -> IO ()
-soln mBy stuff = do
+-- | Strategy: Compute all possible paths
+-- covering all the cities, then find the
+-- best one. Scales geometrically in the
+-- number of cities.
+soln :: BestBy [String] -> String -> IO ()
+soln bestBy stuff = do
   let (cities, distMap) = parseMap stuff
-  let optRoute = mBy (comparing (dist distMap)) $ permutations cities
+  let optRoute = bestBy (comparing (dist distMap)) $ permutations cities
   print $ dist distMap optRoute
 
 solna :: String -> IO ()
