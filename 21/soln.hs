@@ -2,9 +2,11 @@
 
 import Soln
 
+-- | The various item types.
 data ItemType = Weapon | Armor | Ring
               deriving (Eq, Show)
 
+-- | Description of an item.
 data Item = Item {
   itemType :: ItemType,
   itemName :: String,
@@ -13,8 +15,10 @@ data Item = Item {
   itemArmor :: Int }
   deriving Show
 
+-- | Us vs them.
 data XPC = PC | NPC deriving (Eq, Show)
 
+-- | Description of an XPC.
 data Stats = Stats {
   statsType :: XPC,
   statsHP :: Int,
@@ -24,28 +28,32 @@ data Stats = Stats {
   statsGear :: [String] }
   deriving Show
 
+-- | Parse the NPC description.
 parseStats :: String -> Stats
-parseStats stuff
-    | ["Hit_Points:", "Damage:", "Armor:"] == head parse =
-        let [hpstr, dstr, astr] = last parse in
-        Stats NPC (read hpstr) (read dstr) (read astr) 0 []
-    | otherwise = error "bad stats"
-    where
-      parse = transpose $ map words $ lines stuff
+parseStats stuff =
+    case map words $ lines stuff of
+      [[ "Hit", "Points:", hpstr ],
+       [ "Damage:", dstr ],
+       [ "Armor:", astr ]] ->
+          Stats NPC (read hpstr) (read dstr) (read astr) 0 []
+      _ -> error "bad stats"
 
-fightSimDumb :: Stats -> Stats -> XPC
-fightSimDumb npc pc =
-    attack pc npc
+
+-- | Run the fight.
+fightSim :: Stats -> Stats -> XPC
+fightSim npc pc =
+    case find dead $ iterate attack (pc, npc) of
+      Just (_, defender) -> statsType defender
+      _ -> error "fight finished inconclusively"
     where
-      attack attacker defender =
-          let dhp = calcDamage in
-          if dhp <= 0
-          then statsType attacker
-          else attack (defender {statsHP = dhp}) attacker
+      dead (attacker, _) = statsHP attacker <= 0
+      attack (attacker, defender) =
+          (defender {statsHP = calcDamage}, attacker)
           where
             calcDamage = (statsHP defender) -
               (1 `max` (statsDamage attacker - statsArmor defender))
 
+-- | The item table.
 items :: [Item]
 items = [
   --           Weapons:      Cost  Damage  Armor
@@ -70,6 +78,7 @@ items = [
   Item  Ring   "Defense +2"   40     0       2,
   Item  Ring   "Defense +3"   80     0       3 ]
 
+-- | List of all possible equipped PCs.
 equippedPCs :: [Stats]
 equippedPCs =
     map outfit gearChoices
@@ -100,10 +109,11 @@ equippedPCs =
                   statsCost = statsCost player + itemCost item,
                   statsGear = itemName item : statsGear player }
 
+-- | Strategy: Brute force.
 soln :: (Stats -> Int) -> XPC -> String -> IO ()
 soln sf target stuff = do
   let boss = parseStats stuff
-  case find ((target ==) . fightSimDumb boss) pcs of
+  case find ((target ==) . fightSim boss) pcs of
     Nothing -> error "no cromulent equipment"
     Just pc -> print $ statsCost pc
   where
