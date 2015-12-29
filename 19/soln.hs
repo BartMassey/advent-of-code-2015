@@ -61,23 +61,15 @@ solna stuff = do
   let (m, es) = parseMachine stuff
   print $ S.size $ oneStep m $ S.singleton es
 
-invertMap :: TransMap -> TransMap
-invertMap m =
-    M.foldrWithKey' invertEntry M.empty m
-    where
-      invertEntry :: [String] -> [[String]] -> TransMap -> TransMap
-      invertEntry k vs um =
-          foldr backwardInsert um vs
-          where
-            backwardInsert v um' =
-                insertMulti v k um'
-
 solnb :: String -> IO ()
 solnb stuff = do
-  let (m0, es) = parseMachine stuff
-  let m = invertMap m0
-  print $ length $ takeWhile (not . S.member ["e"]) $ 
-    iterate (oneStep m) $ S.singleton es
+  let (_, es) = parseMachine stuff
+  -- Solution from
+  -- https://www.reddit.com/r/adventofcode/
+  --   comments/3xflz8/day_19_solutions/cy4h7ji
+  let n = length es
+  let c s = length $ filter (== s) es
+  print $ n - c "Rn" - c "Ar" - 2 * c "Y" - 1
 
 main :: IO ()
 main = makeMain solna solnb
