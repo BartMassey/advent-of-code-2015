@@ -5,8 +5,11 @@ import qualified Data.Set as S
 
 import Soln
 
+-- | Map (directed) pairs of people to score.
 type PrefMap = M.Map (String, String) Int
 
+
+-- | Parse an individual preference.
 parsePref :: [String] -> ((String, String), Int)
 parsePref [p1, "would", adj, v, "happiness", "units",
            "by", "sitting", "next", "to", p2dot ] =
@@ -17,9 +20,24 @@ parsePref [p1, "would", adj, v, "happiness", "units",
       gainLose _ _ = error "bad adjective"
 parsePref _ = error "bad preference"
 
+-- | Parse a preference list into a 'PrefMap'.
 parsePrefs :: String -> PrefMap
 parsePrefs stuff = M.fromList $ map (parsePref . words) $ lines stuff
 
+-- | List of all people in the map.
+findPeople :: [(String, String)] -> [String]
+findPeople pairs =
+    S.toList $ foldl' persons S.empty pairs
+    where
+       persons s (p1, p2) = S.insert p1 $ S.insert p2 s
+
+-- | Get parse of preferences in final form.
+processPrefs :: String -> (PrefMap, [String])
+processPrefs stuff =
+    let prefMap = parsePrefs stuff in
+    (prefMap, findPeople $ M.keys prefMap)
+
+-- | Strategy: Brute force.
 bestScore :: PrefMap -> [String] -> Int
 bestScore _ [] = 0
 bestScore m xs =
@@ -32,22 +50,12 @@ bestScore m xs =
             scorePair [p1, p2] = fromJust $ M.lookup (p1, p2) m
             scorePair _ = error "bad tile"
 
-findPeople :: [(String, String)] -> [String]
-findPeople pairs =
-    S.toList $ foldl' persons S.empty pairs
-    where
-       persons s (p1, p2) = S.insert p1 $ S.insert p2 s
-
-processPrefs :: String -> (PrefMap, [String])
-processPrefs stuff =
-    let prefMap = parsePrefs stuff in
-    (prefMap, findPeople $ M.keys prefMap)
-
 solna :: String -> IO ()
 solna stuff = do
   let (prefMap, people) = processPrefs stuff
   print $ bestScore prefMap people
 
+-- | Strategy: Hack up the input, then go.
 solnb :: String -> IO ()
 solnb stuff = do
   let (prefMap, people) = processPrefs stuff
