@@ -1,5 +1,5 @@
 HC = ghc
-HCFLAGS = -i.. -Wall -O
+HCFLAGS = -i../Soln -Wall -O2
 
 all: soln soln-aeson soln-json
 

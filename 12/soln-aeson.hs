@@ -8,6 +8,8 @@ import qualified Data.Vector as V
 
 import Soln
 
+-- | Print the sum of all the numbers except optionally
+-- not the numbers in red objects.
 soln :: Bool -> String -> IO ()
 soln ignoreRed stuff = do
   print $ addJson $ fromJust $ decode $ B.pack stuff
