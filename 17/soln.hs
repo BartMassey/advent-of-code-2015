@@ -2,30 +2,25 @@
 
 import Soln
 
-solna :: String -> IO ()
+-- | Amount of eggnog to be stored.
+targetVolume :: Int
+targetVolume = 150
 
+-- | All ways the target volume can be achieved.
 solns :: String -> [[Int]]
 solns stuff =
-    filter ((== 150) . sum) $ subsequences $ map read $ lines stuff
+    filter ((== targetVolume) . sum) $ subsequences $ map read $ lines stuff
 
+solna :: String -> IO ()
 solna stuff = do
   print $ length $ solns stuff
 
-countMinimal :: Ord b => (a -> b) -> [a] -> Int
-countMinimal _ [] = 0
-countMinimal f (e0 : es) =
-    fst $ foldl' check (1, f e0) es
-    where
-      check (c, m) e =
-          let m' = f e in
-          case m' `compare` m of
-            LT -> (1, m')
-            EQ -> (c + 1, m)
-            GT -> (c, m)
-
+-- | Strategy: find the minimum number of containers, then
+-- count the number of fillings using that many.
 solnb :: String -> IO ()
 solnb stuff = do
-  print $ countMinimal length $ solns stuff
+  let minContainers = minimum $ map length $ solns stuff
+  print $ length $ filter ((== minContainers) . length) $ solns stuff
 
 main :: IO ()
 main = makeMain solna solnb
