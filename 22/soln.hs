@@ -7,11 +7,14 @@
 
 import Soln
 
+-- | Us vs them.
 data XPC = PC | NPC
            deriving (Eq, Show, Ord)
 
+-- | An effect applies to both attacker and defender.
 type Effect = (Stats, Stats) -> (Stats, Stats)
 
+-- | Description of XPC.
 data Stats = Stats {
       statsType :: XPC,
       statsHP :: Int,
@@ -21,18 +24,23 @@ data Stats = Stats {
       statsManaSpent :: Int }
              deriving Show
 
+-- | Description of Spell.
 data Spell = Spell {
       spellName :: String,
       spellCost, spellDuration :: Int,
       spellEffect, spellPostEffect:: Effect }
 
+-- | For debugging.
 instance Show Spell where
     show spell = "<<" ++ spellName spell ++
                    "@" ++ show (spellDuration spell) ++ ">>"
 
+-- | Result carries who died and how much mana was spent
+-- by the PC.
 data Result = Result XPC Int
               deriving (Show, Ord, Eq)
 
+-- | The PC.
 pc :: Stats
 pc = Stats {
        statsType = PC,
@@ -42,10 +50,12 @@ pc = Stats {
        statsMana = 500,
        statsManaSpent = 0 }
 
+-- | Read the NPC description.
 parseBoss :: String -> Stats
-parseBoss stuff
-    | ["Hit_Points:", "Damage:"] == head parse =
-        let [hpstr, dstr] = last parse in
+parseBoss stuff =
+    case map words $ lines stuff of
+      [[ "Hit", "Points:", hpstr ],
+       [ "Damage:", dstr ]] ->
         Stats {
           statsType = NPC,
           statsHP = read hpstr,
@@ -53,66 +63,75 @@ parseBoss stuff
           statsArmor = 0,
           statsMana = 0,
           statsManaSpent = 0 }
-    | otherwise = error "bad stats"
-    where
-      parse = transpose $ map words $ lines stuff
+      _ -> error "bad stats"
 
+-- | Apply damage adjusted for armor, with minimum 1 damage.
 applyDamage :: Int -> Stats -> Stats
 applyDamage damage combatant =
     combatant { statsHP =
                     statsHP combatant -
                     (1 `max` (damage - statsArmor combatant)) }
 
+-- | Heal.
 applyHealing :: Int -> Stats -> Stats
 applyHealing healing combatant =
     combatant { statsHP = statsHP combatant + healing }
 
+-- | Increase mana.
 applyMana :: Int -> Stats -> Stats
 applyMana mana combatant =
     combatant { statsMana = statsMana combatant + mana }
 
+-- | Damage spell effect.
 effectDamage :: Effect
 effectDamage (attacker, defender) =
     case statsType attacker of
       NPC -> error "damage applied to PC"
       PC -> (attacker, applyDamage 4 defender)
     
+-- | Drain spell effect.
 effectDrain :: Effect
 effectDrain (attacker, defender) =
     case statsType attacker of
       NPC -> error "drain applied to PC"
       PC -> (applyHealing 2 attacker, applyDamage 2 defender)
 
+-- | Shield spell effect.
 effectShield :: Effect
 effectShield (attacker, defender) =
     case statsType attacker of
       NPC -> (attacker, defender { statsArmor = 7 })
       PC -> (attacker { statsArmor = 7 }, defender)
 
+-- | Shield spell post-effect.
 effectUnshield :: Effect
 effectUnshield (attacker, defender) =
     case statsType attacker of
       NPC -> (attacker, defender { statsArmor = 0 })
       PC -> (attacker { statsArmor = 0 }, defender)
 
+-- | Poison spell effect.
 effectPoison :: Effect
 effectPoison (attacker, defender) =
     case statsType attacker of
       NPC -> (applyDamage 3 attacker, defender)
       PC -> (attacker, applyDamage 3 defender)
 
+-- | Recharge spell effect.
 effectRecharge :: Effect
 effectRecharge (attacker, defender) =
     case statsType attacker of
       NPC -> (attacker, applyMana 101 defender)
       PC -> (applyMana 101 attacker, defender)
 
+-- | Treat "hard mode" as a spell effect.
 effectHardMode :: Effect
 effectHardMode (attacker, defender) =
     case statsType attacker of
       NPC -> (attacker, defender)
       PC -> (applyDamage 1 attacker, defender)
 
+-- | The spell table.
 spellbook :: [Spell]
 spellbook = [
   Spell "Magic Missile" 53 0 effectDamage id,
@@ -121,6 +140,7 @@ spellbook = [
   Spell "Poison"       173 6 effectPoison id,
   Spell "Recharge"     229 5 effectRecharge id ]
 
+-- | Decrease caster mana and record its expenditure.
 spendMana :: Spell -> Stats -> Stats
 spendMana spell caster =
     let cost = spellCost spell in
@@ -128,10 +148,12 @@ spendMana spell caster =
       statsMana = statsMana caster - cost,
       statsManaSpent = statsManaSpent caster + cost }
 
+-- | Tick off the clock on a spell.
 decrementDuration :: Spell -> Spell
 decrementDuration spell =
     spell { spellDuration = spellDuration spell - 1 }
 
+-- | If either side has died, report it.
 diedFromSpell :: (Stats, Stats) -> Maybe Result
 diedFromSpell (attacker, defender) =
     if statsHP attacker <= 0 then
@@ -145,8 +167,9 @@ diedFromSpell (attacker, defender) =
     else
         Nothing
 
-fightSim :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
-fightSim limit strat effects attacker defender =
+-- | The actual fight.
+fightSim :: [Spell] -> Stats -> Stats -> Result
+fightSim effects attacker defender =
     let instCombatants = runInstants (attacker, defender) in
       case diedFromSpell instCombatants of
         Just result -> result
@@ -156,7 +179,7 @@ fightSim limit strat effects attacker defender =
             in
             case diedFromSpell effectedCombatants of
               Just result -> result
-              Nothing -> uncurry (fightRound limit strat newEffects)
+              Nothing -> uncurry (fightRound newEffects)
                            effectedCombatants
     where
       runInstants combatants =
@@ -183,49 +206,30 @@ fightSim limit strat effects attacker defender =
                         error "misqueued spell"
                   _ -> (decrementDuration spell : newEffects, curCombatants)
 
-fightRound :: Int -> Maybe [String] -> [Spell] -> Stats -> Stats -> Result
-fightRound limit strat effects attacker defender =
+-- | Fight one round.
+fightRound :: [Spell] -> Stats -> Stats -> Result
+fightRound effects attacker defender =
     case statsType attacker of
       PC ->
           case spellChoices of
-            [] -> case strat of
-                    Nothing -> Result NPC (statsManaSpent attacker)
-                    Just _ -> error $ unlines [
-                               "ran out of spell choices before winning",
-                                "player " ++ show attacker,
-                                "effects " ++ show effects ]
-            cs -> case strat of
-                    Nothing ->
-                        minimum $ map magicalAttack $ sortBy (comparing spellCost) cs
-                    Just [] -> error "ran out of strat"
-                    Just (s : _) ->
-                        magicalAttack $ lookupSpell s cs
+            [] -> Result NPC (statsManaSpent attacker)
+            cs -> minimum $ map magicalAttack $ sortBy (comparing spellCost) cs
           where
-            lookupSpell stratSpell candidates =
-                case find (\c -> spellName c == stratSpell) candidates of
-                  Just s -> s
-                  Nothing -> error $ unlines [
-                              "failed to find strat spell " ++ stratSpell,
-                              "in " ++ show (map spellName candidates),
-                              "player " ++ show attacker,
-                              "effects " ++ show effects ]
             magicalAttack spell =
                 let chargedAttacker = spendMana spell attacker in
-                case limit - statsManaSpent attacker of
-                  newLimit | newLimit < 0 -> Result NPC 1000000
-                  newLimit ->
+                case statsManaSpent chargedAttacker of
+                  m | m > 2000 -> Result NPC 1000000
+                  _ ->
                     case spellDuration spell of
                       0 ->
                         let (effectedAttacker, effectedDefender) =
                               spellEffect spell (chargedAttacker, defender) in
                         if statsHP effectedDefender <= 0
                         then Result PC (statsManaSpent effectedAttacker)
-                        else fightSim newLimit (fmap tail strat)
-                               effects effectedDefender effectedAttacker
+                        else fightSim effects effectedDefender effectedAttacker
                       _ -> 
                         let addedEffects = spell : effects in
-                        fightSim newLimit (fmap tail strat)
-                                 addedEffects defender chargedAttacker
+                        fightSim addedEffects defender chargedAttacker
             spellChoices =
                 sortBy (comparing spellCost) $ filter okSpell spellbook
                 where
@@ -237,17 +241,17 @@ fightRound limit strat effects attacker defender =
                 applyDamage (statsDamage attacker) defender in
           if statsHP effectedDefender <= 0
           then Result NPC (statsManaSpent effectedDefender)
-          else fightSim limit strat effects effectedDefender attacker
+          else fightSim effects effectedDefender attacker
 
 solna :: String -> IO ()
 solna stuff = do
   let boss = parseBoss stuff
-  print $ fightSim 10000 Nothing [] pc boss
+  print $ fightSim [] pc boss
 
 solnb :: String -> IO ()
 solnb stuff = do
   let boss = parseBoss stuff
-  print $ fightSim 10000 Nothing [hardMode] pc boss
+  print $ fightSim [hardMode] pc boss
   where
     hardMode = Spell "HardMode" 0 (-1) effectHardMode id
 
