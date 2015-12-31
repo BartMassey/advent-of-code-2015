@@ -1,1 +1,1 @@
-../Makefile
+../Soln/Makefile.template
