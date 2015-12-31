@@ -2,10 +2,14 @@
 
 import Soln
 
+-- | Get the list of weights.
 parseWeights :: String -> [Int]
 parseWeights stuff =
     map read $ lines stuff
 
+-- | Generate all the asymmetric splits of the first few
+-- elements. This removes some symmetries from the overall
+-- problem.
 asymmetricSplits :: Int -> Int -> [Int] -> [[[Int]]]
 asymmetricSplits n _ [] = [replicate n []]
 asymmetricSplits n maxWeight (w : ws) = nub $ do
@@ -16,6 +20,7 @@ asymmetricSplits n maxWeight (w : ws) = nub $ do
   guard $ all (newWeight <=) (map sum rest)
   return (first ++ [w : bin] ++ rest)
 
+-- | Generate all the valid splits.
 allSplits :: Int -> Int -> [Int] -> [[[Int]]]
 allSplits n maxWeight ws | length ws <= n =
     asymmetricSplits n maxWeight ws
@@ -28,6 +33,7 @@ allSplits n maxWeight (w : ws) = do
   where
     partials = allSplits n maxWeight ws
 
+-- | Strategy: Brute force.
 soln :: Int -> String -> IO ()
 soln n stuff = do
   let weights = sort $ parseWeights stuff
