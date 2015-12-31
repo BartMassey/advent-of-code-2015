@@ -7,6 +7,7 @@ module Soln (
   module Control.Applicative,
   module Data.Bits,
   module Data.Char,
+  module Data.Either,
   module Data.Function,
   module Data.List,
   module Data.Maybe,
@@ -18,6 +19,7 @@ import Control.Monad
 import Control.Applicative
 import Data.Bits
 import Data.Char
+import Data.Either
 import Data.Function
 import Data.List
 import Data.Maybe
