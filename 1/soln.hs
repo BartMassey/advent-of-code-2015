@@ -24,19 +24,18 @@ type State = Either Int (Int, Int)
 -- | Strategy: Traverse the floors keeping count.
 solnb :: String -> IO ()
 solnb stuff = do
-  case foldl' traverse (Right (1, 0)) stuff of
+  case foldM traverse (1, 0) stuff of
     Left n -> print n
     Right _ -> error "basement never entered"
   where
-    traverse :: State -> Char -> State
-    traverse (Right (count, floor)) '(' =
-        Right (count + 1, floor + 1)
-    traverse (Right (count, floor)) ')'
-        -- Going down from floor 0 enters the basement.
-        | floor == 0 = Left count
-        | otherwise = Right (count + 1, floor - 1)
-    traverse count@(Left _) _ = count
-    traverse _ _ = error "bad input or state"
+    traverse :: (Int, Int) -> Char -> State
+    traverse (count, floor) dirn =
+        case dirn of
+          '(' -> Right (count + 1, floor + 1)
+          -- Going down from floor 0 enters the basement.
+          ')' | floor == 0 -> Left count
+          ')' -> Right (count + 1, floor - 1)
+          _ -> error "bad direction"
 
 main :: IO ()
 main = makeMain solna solnb
