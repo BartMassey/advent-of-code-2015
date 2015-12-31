@@ -1,5 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
 -- Copyright © 2015 Bart Massey
+-- [This program is licensed under the "MIT License"]
+-- Please see the file COPYING in the source
+-- distribution of this software for license terms.
+
+{-# LANGUAGE OverloadedStrings #-}
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy.Char8 as B

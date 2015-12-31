@@ -1,4 +1,8 @@
 -- Copyright © 2015 Bart Massey
+-- [This program is licensed under the "MIT License"]
+-- Please see the file COPYING in the source
+-- distribution of this software for license terms.
+
 
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S

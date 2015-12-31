@@ -1,1 +1,4 @@
-sed -e 's/[^-0-9]/ /g' -e 's/  */ /g' <input.txt | tr ' ' '\n'
+# Copyright © 2015 Bart Massey
+# [This program is licensed under the "MIT License"]
+# Please see the file COPYING in the source
+# distribution of this software for license terms.
