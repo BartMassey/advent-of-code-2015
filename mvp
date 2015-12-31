@@ -1,0 +1,3 @@
+#!/bin/sh
+git mv problem-a.txt problem-a.md
+git mv problem-b.txt problem-b.md

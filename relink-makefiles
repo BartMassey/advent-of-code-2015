@@ -1,0 +1,9 @@
+#!/bin/sh
+find . -type l -name Makefile -print |
+sed 's=/Makefile$==' |
+while read DIR
+do
+    ( cd $DIR &&
+      rm -f Makefile &&
+      ln -s ../Soln/Makefile.template Makefile )
+done
