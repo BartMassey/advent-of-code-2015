@@ -3,8 +3,6 @@
 -- Please see the file COPYING in the source
 -- distribution of this software for license terms.
 
-{-# LANGUAGE ExistentialQuantification #-}
-
 import Soln
 
 -- | Give registers symbolic names for type safety.
@@ -14,51 +12,6 @@ data Reg = RegA | RegB
 data State = State {
       rA, rB, pc :: Int }
              deriving Show
-
--- | Form of an arithmetic instruction.
-data ALUInsn = ALUInsn {
-      aluOpcode :: String,
-      aluRegister :: Reg,
-      aluOp :: Reg -> State -> State }
-
--- | Form of a control instruction.
-data CtlInsn = CtlInsn {
-      ctlOpcode :: String,
-      ctlOffset :: Int,
-      ctlOp :: Int -> State -> State }
-
--- | Form of a conditional instruction.
-data CondInsn = CondInsn {
-      condOpcode :: String,
-      condRegister :: Reg,
-      condOffset :: Int,
-      condOp :: Reg -> Int -> State -> State }
-
--- | Form of instructions in general.
-class Insn a where
-    insnOpcode :: a -> String
-    insnOp :: a -> State -> State
-
--- | How to view an ALU instruction.
-instance Insn ALUInsn where
-    insnOpcode = aluOpcode
-    insnOp (ALUInsn {aluOp = i, aluRegister = r}) s =
-        i r s
-
--- | How to view a control instruction.
-instance Insn CtlInsn where
-    insnOpcode = ctlOpcode
-    insnOp (CtlInsn {ctlOp = i, ctlOffset = o}) s =
-        i o s
-
--- | How to view a conditional instruction.
-instance Insn CondInsn where
-    insnOpcode = condOpcode
-    insnOp (CondInsn {condOp = i, condRegister = r, condOffset = o}) s =
-        i r o s
-
--- | Type of generic instructions.
-data InsnT = forall a . Insn a => InsnT a
 
 -- | Execute an ALU instruction.
 updateALU :: (Int -> Int) -> Reg -> State -> State
@@ -86,21 +39,19 @@ updateCond fn reg off state =
       readReg RegB s = rB s
 
 -- | Parse and genericize a program's instructions.
-parseInsn :: [String] -> InsnT
+parseInsn :: [String] -> State -> State
 parseInsn ["hlf", reg] =
-  InsnT $ ALUInsn "hlf" (parseReg reg) (updateALU (`div` 2))
+  updateALU (`div` 2) (parseReg reg) 
 parseInsn ["inc", reg] =
-  InsnT $ ALUInsn "inc" (parseReg reg) (updateALU (+ 1))
+  updateALU (+ 1) (parseReg reg)
 parseInsn ["tpl", reg] =
-  InsnT $ ALUInsn "tpl" (parseReg reg) (updateALU (* 3))
+  updateALU (* 3) (parseReg reg)
 parseInsn ["jmp", off] =
-  InsnT $ CtlInsn "jmp" (parseOff off) updateCtl
+  updateCtl (parseOff off)
 parseInsn ["jie", reg, off] | last reg == ',' =
-  InsnT $ CondInsn "jie" (parseReg (init reg)) (parseOff off)
-          (updateCond even)
+  updateCond even (parseReg (init reg)) (parseOff off)
 parseInsn ["jio", reg, off] | last reg == ',' =
-  InsnT $ CondInsn "jio" (parseReg (init reg)) (parseOff off)
-          (updateCond (== 1))
+  updateCond (== 1) (parseReg (init reg)) (parseOff off)
 parseInsn _ = error "illegal instruction"
 
 -- | Parse a register name.
@@ -117,7 +68,7 @@ parseOff ('-' : off) = negate (read off)
 parseOff _ = error "illegal offset"
 
 -- | Parse a whole program.
-parseProgram :: String -> [InsnT]
+parseProgram :: String -> [State -> State]
 parseProgram stuff =
     map (parseInsn . words) $ lines stuff
 
@@ -127,13 +78,18 @@ parseProgram stuff =
 -- prizes. An array would be a better plan, but Haskell
 -- arrays are a pain and it doesn't matter for short runs of
 -- small programs.
-runProgram :: [InsnT] -> State -> State
-runProgram insns state
-    | pc state < 0 = error "pc off top"
-    | pc state >= length insns = state
-    | otherwise =
-        case insns !! pc state of
-          InsnT insn -> runProgram insns (insnOp insn state)
+runProgram :: [State -> State] -> State -> State
+runProgram insns state0 =
+    case find terminated $ iterate runInsn state0 of
+      Just state -> state
+      Nothing -> error "program terminated early"
+    where
+      terminated state = pc state >= length insns
+      runInsn state
+          | pc state < 0 = error "pc off top"
+          | terminated state = state
+          | otherwise =
+               (insns !! pc state) state
 
 solna :: String -> IO ()
 solna stuff = do
