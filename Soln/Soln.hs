@@ -5,7 +5,7 @@
 
 
 module Soln (
-  tiles, envelop, splits, sspan,
+  tiles, envelop, splits, sspan, loop,
   makeMain,
   module Control.Monad,
   module Control.Applicative,
@@ -63,6 +63,15 @@ sspan :: (a -> Bool) -> [a] -> ([a], [a])
 sspan _ [] = ([], [])
 sspan f (x : xs) | f x = ([x], xs)
 sspan f (x : xs) = let (l, r) = sspan f xs in (x : l, r)
+
+-- | Loop on an 'Either' monad until 'Left' is hit.
+loop :: (a -> Either b a) -> a -> b
+loop a0 x0 =
+    case go a0 x0 of
+      Left y -> y
+      Right _ -> error "early loop termination"
+    where
+      go a x = a x >>= go a
 
 -- | Package up all the input reading and argument parsing
 -- into a single clean `main`.
