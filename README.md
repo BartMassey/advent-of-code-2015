@@ -23,7 +23,7 @@ on other operating systems).  For a few problems you will
 also need to install extra packages from
 [Hackage](http://hackage.haskell.org). The easiest way to do
 that is with
-`[cabal](https://wiki.haskell.org/Cabal-Install)` AKA
+[`cabal`](https://wiki.haskell.org/Cabal-Install) AKA
 `cabal-install`, so you will want to learn how to operate
 that.
 
