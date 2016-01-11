@@ -7,6 +7,7 @@
 import Crypto.Hash.MD5
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
+import Control.Parallel.Strategies
 
 import Soln
 
@@ -30,10 +31,13 @@ hashString s =
 -- | Strategy: Brute force.
 solve :: String -> Int -> Int
 solve stuff digits =
-    fromJust $ find valid [1..]
+    head $ catMaybes $ evalBuffer 256 rseq `withStrategy` map valid [1..]
     where
-      valid n = (replicate digits '0') ==
-                (take digits $ hashString $ stuff ++ show n)
+      valid n
+          | replicate digits '0' ==
+            (take digits $ hashString $ stuff ++ show n) =
+                Just n
+          | otherwise = Nothing
 
 solna :: String -> IO ()
 solna stuff = do

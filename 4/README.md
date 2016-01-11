@@ -14,7 +14,6 @@ Unicode. One could fix this fairly straightforwardly to
 support Unicode passwords, but this seemed like an odd thing
 to do.
 
-This code is reasonably efficient, printing the Part B
-answer in about 1.6s. It could be made more efficient by
-working directly with the MD5 output and the input
-`ByteString` rather than a bunch of conversions.
+This code is a parallel version, requiring the `parallel`
+library. On my 4-core box, it is about 50% slower than the
+sequential one given the best tuning I could find.
